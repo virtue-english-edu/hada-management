@@ -35,6 +35,8 @@
  --text-micro:.6875rem;
  /* 간격 (4px 단위). 글자·간격·모서리·높이는 rem이라 기기 화면 모드(html.device)에서 함께 커진다 */
  --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;--space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-12:3rem;
+ /* 기록 카드 펼친 칸 간격(리포트 수료 구역과 같은 14px): 마지막 작은 글씨 → 펼친 칸, 펼친 칸 안 위 여백 */
+ --space-extra:.875rem;
  /* 모서리: 리포트 기준(배지 6, 버튼·칸 10, 카드 14, 알약) */
  --radius-xs:.1875rem;--radius-sm:.375rem;--radius-md:.625rem;--radius-lg:.875rem;--radius-pill:999px;
  /* 헤더·아이콘 버튼: 1부 5장(헤더 56px, 44×44 클릭 영역 안 20×20 아이콘) */

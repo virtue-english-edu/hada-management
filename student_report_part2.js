@@ -716,6 +716,94 @@ async function fetchLetter(month) {
   }
   if (view === "letter" && letterKey(selectedLetterMonth) === key) renderApp()
 }
+// (v2.8.0, 11/10 대표) 선생님 한마디 카드: 한마디 + 작은 글씨(선생님·기간) + 펼치면 본문. 학습기록 카드와 같은 모양(.log-card).
+//  - 주간·월간 보고서: 반 전체(반 발송함 본문) → 선 → ○○ 학생(보고서 본문)
+//  - 일간 보고서: 그날 출석 페이지 본문(소제목 없음)
+//  - 수료 구역은 이미 펼친 칸 안이라 한마디 아래 반 전체 · ○○ 학생을 바로 보인다(reportBodySlotHtml).
+// 가정통신문처럼 캐시에는 id만 있고, 본문은 그 보고서를 볼 때 get-report-body가 읽는다(보낸 것만, 안 보냈으면 빈 본문).
+// 본문이 있을 때만 화살표가 생기므로, 받아 오면 그 카드(data-teacher-card)·수료 칸(data-report-body)만 다시 그린다.
+// 화면 전체를 다시 그리면 펼친 수료 구역이 접힌다.
+const reportBodyCache = {}
+const teacherCardSpecs = {}
+function periodReports(reports, kind, rangeStart, rangeEnd) {
+  return (reports || []).filter((c) => c.kind === kind && c.start && (c.end || c.start) >= rangeStart && c.start <= rangeEnd)
+}
+function reportBodyKey(kind, id) {
+  return `${currentReg()?.registration_id || ""}:${kind}:${String(id || "").replace(/-/g, "")}`
+}
+async function fetchReportBody(kind, id, key) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/get-report-body`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token: REPORT_ACCESS_TOKEN, [kind === "attendance" ? "attendanceId" : "reportId"]: id }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.body) throw new Error(data.error || `HTTP ${res.status}`)
+    reportBodyCache[key] = { body: data.body }
+  } catch (err) {
+    // 본문은 덧붙는 내용이라 실패하면 화살표 없이 두고, 다음에 이 화면을 그릴 때 다시 읽는다.
+    console.error("fetchReportBody failed", err)
+    reportBodyCache[key] = { failed: true }
+  }
+  document.querySelectorAll(`[data-teacher-card="${key}"]`).forEach((el) => { el.innerHTML = teacherCardInnerHtml(key) })
+  document.querySelectorAll(`[data-report-body="${key}"]`).forEach((el) => { el.innerHTML = reportBodyInlineHtml(key) })
+}
+// 처음 볼 때 한 번 읽는다(실패했으면 다시). 읽을 수 없으면(옛 캐시라 id 없음) 빈 값.
+function ensureReportBody(kind, id) {
+  if (!id || !SUPABASE_URL || !REPORT_ACCESS_TOKEN) return ""
+  const key = reportBodyKey(kind, id)
+  const state = reportBodyCache[key]
+  if (!state || state.failed) {
+    reportBodyCache[key] = { loading: true }
+    fetchReportBody(kind, id, key)
+  }
+  return key
+}
+// 반 전체 → 선 → ○○ 학생. 학습기록 펼침(buildCombinedFeedBodyHtml)과 같은 부품. 일간은 학생 본문 하나라 소제목 없이.
+function teacherBodyHtml(body, daily) {
+  if (!body) return ""
+  const common = buildFeedBodyHtml(body.classBody)
+  const own = buildFeedBodyHtml(body.studentBody)
+  if (daily) return own
+  if (!common && !own) return ""
+  const section = (label, html) => `<section class="feed-section"><div class="feed-section-label">${esc(label)}</div>${html}</section>`
+  return `<div class="feed-combined">${common ? section("반 전체", common) : ""}${common && own ? `<hr class="feed-source-activity-divider">` : ""}${own ? section(`${STUDENT.student_name} 학생`, own) : ""}</div>`
+}
+function teacherCardInnerHtml(key) {
+  const spec = teacherCardSpecs[key] || {}
+  const extra = teacherBodyHtml(reportBodyCache[key]?.body, spec.daily)
+  if (!spec.comment && !extra) return `<div class="card rep-card"><div class="empty">아직 등록된 한마디가 없어요.</div></div>`
+  const top = spec.comment ? `<div class="speech">${esc(spec.comment)}</div>` : `<div class="speech muted">선생님 보고서가 있어요</div>`
+  const meta = (spec.rows || []).filter(Boolean).map((row) => `<div class="log-context">${esc(`• ${row}`)}</div>`).join("")
+  const chevron = extra ? `<button type="button" class="log-extra-chevron" onclick="toggleLogExtra(this)" aria-label="선생님 보고서 펼치기">${CHEVRON_DOWN_SVG}</button>` : ""
+  return `<div class="log-card teacher-card">${top}${meta || chevron ? `<div class="log-meta">${meta}${chevron}</div>` : ""}${extra ? `<div class="log-extra">${extra}</div>` : ""}</div>`
+}
+// 선생님 한마디 카드 하나. kind: "report"(주간·월간) | "attendance"(일간). id가 없으면(옛 캐시) 한마디만.
+let teacherCardSeq = 0
+function teacherCardHtml(kind, id, spec) {
+  const key = ensureReportBody(kind, id) || `none:${++teacherCardSeq}`
+  teacherCardSpecs[key] = { ...spec, daily: kind === "attendance" }
+  return `<div data-teacher-card="${esc(key)}">${teacherCardInnerHtml(key)}</div>`
+}
+// 수료 구역(이미 펼친 칸 안): 한마디 아래 반 전체 · ○○ 학생을 바로 보인다.
+function reportBodyInlineHtml(key) {
+  const body = reportBodyCache[key]?.body
+  if (!body) return ""
+  const card = (html) => `<div class="card rep-card letter-body">${html}</div>`
+  const common = buildFeedBodyHtml(body.classBody)
+  const own = buildFeedBodyHtml(body.studentBody)
+  return (common ? `<div class="rep-sub">반 전체</div>${card(common)}` : "") + (own ? `<div class="rep-sub">${esc(STUDENT.student_name)} 학생</div>${card(own)}` : "")
+}
+function reportBodySlotHtml(report) {
+  const key = report && ensureReportBody("report", report.id)
+  if (!key) return ""
+  return `<div class="report-body" data-report-body="${esc(key)}">${reportBodyInlineHtml(key)}</div>`
+}
 function letterToTop() {
   window.scrollTo({ top: 0 })
   document.body.scrollTop = 0
@@ -1314,13 +1402,15 @@ function buildReportTabHtml(r) {
     </div>` : ""}
     ${routinePeriodHtml(r, rangeStart, rangeEnd)}
     <h3 class="sec-title"><span class="sec-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg></span>선생님 한마디</h3>
-    <div class="card">
-      ${(() => {
-        const kind = reportPeriod === "week" ? "주간 보고서" : "월간 보고서"
-        const matched = reportComments.filter((c) => c.kind === kind && c.start && (c.end || c.start) >= rangeStart && c.start <= rangeEnd)
-        return matched.length ? matched.map((c) => `<div class="speech">${esc(c.comment)}</div>`).join("") : `<div class="empty">아직 등록된 한마디가 없어요.</div>`
-      })()}
-    </div>
+    ${(() => {
+      // (v2.8.0 보고서 본문) 한마디 + 펼치면 반 전체·학생 본문. 기간 안 보고서마다 카드 하나(보통 하나).
+      const matched = periodReports(reportComments, reportPeriod === "week" ? "주간 보고서" : "월간 보고서", rangeStart, rangeEnd)
+      const teacher = currentReg()?.teacher || ""
+      const md = (d) => String(d || "").slice(5, 10).replace("-", ".")
+      return matched.length
+        ? matched.map((c) => teacherCardHtml("report", c.id, { comment: c.comment, rows: [teacher, c.start ? `기간: ${md(c.start)} ~ ${md(c.end || c.start)}` : ""] })).join("")
+        : `<div class="card rep-card"><div class="empty">아직 등록된 한마디가 없어요.</div></div>`
+    })()}
     </div>
   `
 }
@@ -1429,9 +1519,12 @@ function buildDailyBodyHtml(r, date) {
   const routineHtml = todaysRoutines.length
     ? groupBand(todaysRoutines, (x) => `<div class="rep-item"><div class="rep-title">${esc(x.name)}${routineOxBadge(x.done)}</div></div>`, "")
     : empty("이날 루틴 체크가 없어요.")
-  const commentHtml = comment
-    ? band(`<div class="speech">${esc(comment.text)}${comment.by ? `<small>${esc(comment.by)}</small>` : ""}</div>`)
-    : empty("아직 등록된 한마디가 없어요.")
+  // (v2.8.0 보고서 본문) 한마디 + 펼치면 그날 출석 페이지 본문(일일 보고서를 보낸 날만).
+  const commentHtml = attendanceRow && attendanceRow.id
+    ? teacherCardHtml("attendance", attendanceRow.id, { comment: comment ? comment.text : "", rows: [comment ? comment.by : "", `${shortDateDow(date)} 수업`] })
+    : comment
+      ? band(`<div class="speech">${esc(comment.text)}${comment.by ? `<small>${esc(comment.by)}</small>` : ""}</div>`)
+      : empty("아직 등록된 한마디가 없어요.")
 
   // (v2.5.97) 평가 현황: 그날 평가 점수(여러 개면 평균). 없으면 "해당 없음". 점수 색은 평가 기록 알약과 같은 단계(scorePillTone).
   const scoredToday = todaysTests.filter((t) => t.total)

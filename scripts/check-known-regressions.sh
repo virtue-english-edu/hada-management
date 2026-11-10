@@ -221,6 +221,10 @@ if ! grep -q 'letters.some' supabase/functions/get-report-letter/index.ts; then
   echo "❌ get-report-letter: 보낸 달만 여는 검증이 빠졌습니다."
   fail=1
 fi
+if ! grep -q 'detail.report_comments ?? \[\] : detail.attendance_rows ?? \[\]' supabase/functions/get-report-body/index.ts || ! grep -q 'PROP_STATUS)?.select?.name !== SENT' supabase/functions/_shared/reportBody.ts; then
+  echo "❌ get-report-body: 토큰 캐시에 있는 보낸 보고서·출석만 여는 검증이 빠졌습니다."
+  fail=1
+fi
 if ! grep -q 'get-report-file' student_report_part1.js; then
   echo "❌ student_report_part1.js: 최신 파일 URL 요청 코드가 빠졌습니다."
   fail=1

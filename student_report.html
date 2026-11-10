@@ -423,6 +423,8 @@ body {
    늘리고(음수 마진) 그만큼 자체 패딩을 줘서 카드 하단에 흰 여백이 남지 않게 한다. */
 .log-extra { display: none; padding: 10px 16px 14px; margin: 0 -16px -14px; }
 .log-extra.show { display: block; background: var(--brand-tint); border-radius: 0 0 14px 14px; }
+/* 기록 카드 펼친 칸: 마지막 작은 글씨·화살표와 14 띄우고, 칸 안 위도 14(수료 구역과 같은 간격, DESIGN.md 부품 기준표 "기록 카드") */
+.log-card > .log-extra.show:not(.completion-detail) { margin-top: 14px; padding-top: 14px; }
 .log-extra .feed-body { margin-top: 0; padding-top: 0; border-top: none; }
 /* 수료 구역: 펼친 베이지 칸 안의 흰 상자들(출석 칸·그래프·한마디) */
 .completion-detail.show { margin-top: 14px; padding-top: 16px; padding-bottom: 18px; }
@@ -848,6 +850,13 @@ body:not(.reg-expanded) .cal-hint { animation: calExtraFadeIn 0.26s ease both; }
 .letter-lines + .letter-lines { margin-top: 12px; }
 .letter-note { font-size: 14px; line-height: 1.6; white-space: pre-line; color: var(--text-primary); }
 .letter-action { display: block; width: 100%; min-height: 44px; margin-top: 16px; border: 0; border-radius: 10px; background: #F5EFE7; color: #3F372F; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+/* 선생님 한마디 카드: 한마디 없이 본문만 있으면 옅은 안내 한 줄. 수료 구역의 보고서 본문은 가정통신문 본문과 같은 카드, 비면 자리도 남기지 않는다 */
+.teacher-card .speech.muted { color: var(--text-muted); }
+/* 한마디 → 작은 글씨는 6(눈으로 약 11): 작은 글씨가 한마디에 붙고, 펼친 칸(14)과는 한 단계 떨어져 보이게 */
+.teacher-card > .log-meta { margin-top: 6px; }
+.report-body:empty { display: none; }
+.completion-detail .card + .report-body > .rep-sub:first-child { margin-top: 18px; }
+.completion-detail .report-body > :last-child { margin-bottom: 0; }
 .progress-line { display: flex; align-items: center; gap: 8px; }
 .progress-line .track { flex: 1; height: 8px; border-radius: 8px; background: var(--brand-soft); overflow: hidden; }
 .progress-line .fill { height: 100%; border-radius: 8px; background: var(--brand-deep); }
@@ -1102,7 +1111,7 @@ body:not(.reg-expanded) .cal-hint { animation: calExtraFadeIn 0.26s ease both; }
 </div>
 
 <script src="hada_config.js"></script>
-<script src="student_report_part1.js?v=1a5f971d"></script>
-<script src="student_report_part2.js?v=4a945bc4"></script>
+<script src="student_report_part1.js?v=44ed5204"></script>
+<script src="student_report_part2.js?v=96e8d1bb"></script>
 </body>
 </html>

@@ -368,7 +368,8 @@ export async function buildRegistrationDetail(reg: any, cachedGetPage: (id: stri
   const attendance_rows = attendanceEntries
     .filter((e) => (e.iso ?? "").slice(0, 10) <= todayIso)
     .slice(0, 200)
-    .map((e) => ({ iso: e.iso, date: e.date, weekday: e.weekday, status: e.status, in: e.in, out: e.out, arrived: e.arrived, left: e.left }))
+    // (v2.8.0 보고서 본문) id: 일간 보고서 선생님 한마디를 펼치면 이 출석 페이지 본문을 읽는다(get-report-body).
+    .map((e) => ({ id: e.id, iso: e.iso, date: e.date, weekday: e.weekday, status: e.status, in: e.in, out: e.out, arrived: e.arrived, left: e.left }))
 
   const teacher_comments = attendanceEntries
     .filter((e) => e.comment && (e.iso ?? "").slice(0, 10) <= todayIso)
@@ -395,8 +396,9 @@ export async function buildRegistrationDetail(reg: any, cachedGetPage: (id: stri
         book_id: (relationIds(rpr["진도교재"])[0] ?? "").replace(/-/g, ""),
       }
     })
-    // 수료 보고서는 한마디가 없어도 싣는다(교재 상세 수료 구역이 보고서 기간을 쓴다).
-    .filter((rc) => (rc.comment || rc.kind === "수료 보고서") && rc.start && rc.start >= sinceIso)
+    // 한마디가 없어도 싣는다: 수료 구역은 보고서 기간을 쓰고, (v2.8.0 보고서 본문) 화면이 이 id로 본문을 읽는다(get-report-body).
+    // 한마디 칸은 화면이 한마디 있는 것만 보인다.
+    .filter((rc) => rc.start && rc.start >= sinceIso)
 
   const logIdSet = new Set<string>()
   // (v2.6.19) 학습기록 날짜는 학습기록의 날짜 수식(수업일)이 아니라 이 학생이 그 기록에 연결된 출석의 실제 날짜(수업일시)를 쓴다.

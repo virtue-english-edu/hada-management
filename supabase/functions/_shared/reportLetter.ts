@@ -56,7 +56,8 @@ export async function buildLetterList(regIds: string[]): Promise<{ month: string
 }
 
 // 화면에 보내는 본문에는 blockId를 빼고 새로 받은 주소만 남긴다. 파일은 그 주소로 바로 열린다.
-function publicBody(blocks: unknown[]): unknown[] {
+// (보고서 본문 reportBody.ts도 같이 쓴다.)
+export function publicBody(blocks: unknown[]): unknown[] {
 	return blocks.map((b: any) => {
 		if (!b || typeof b !== "object") return b
 		const { blockId: _blockId, ...rest } = b
