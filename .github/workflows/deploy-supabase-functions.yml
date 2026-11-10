@@ -87,7 +87,7 @@ jobs:
           # 비밀번호에 특수문자(@, :, / 등)가 있으면 접속 URL이 깨지므로 percent-encode 해서 넣는다.
           # 복사/붙여넣기 과정에서 섞여 들어갈 수 있는 앞뒤 공백/개행 문자도 제거한다.
           ENCODED_DB_PASSWORD=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'].strip(), safe=''))")
-          supabase db push --db-url "postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_DB_PASSWORD}@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
+          supabase db push --db-url "postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_DB_PASSWORD}@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
         env:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -145,7 +145,7 @@ jobs:
         run: |
           set -e
           ENCODED_DB_PASSWORD=$(python3 -c "import urllib.parse, os; print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'].strip(), safe=''))")
-          supabase migration list --db-url "postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_DB_PASSWORD}@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
+          supabase migration list --db-url "postgresql://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_DB_PASSWORD}@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
         env:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}

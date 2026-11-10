@@ -1,4 +1,4 @@
-# 하다 학원관리 (academy-management)
+# 하다 학원관리 (hada-management)
 
 Notion 기반 학원관리 시스템의 백엔드(Supabase Edge Functions)·마이그레이션·운영 웹앱(GitHub Pages) 저장소입니다.
 
@@ -23,7 +23,7 @@ Notion 워크스페이스의 "📘 하다 학원관리 구조·실행 설명서"
 | 이식 도구 | `scripts/setup-new-academy.py`(원본 주소 초기 치환), `scripts/reset-admin-password.py`(관리자 비밀번호 0000 초기화) |
 | Notion 기준 도구 | `scripts/notion-scan.js`(브라우저에서 Notion 구성 읽기 전용 스캔), `scripts/notion-diff.py`(원본 지문과 비교), `scripts/notion-spec.py`·`scripts/notion-extract.py`(원본 전용: 명세·지문 만들기, 요청 항목 뽑기) |
 
-운영 웹앱 기준 주소: `https://hada-notion.github.io/academy-management/`
+운영 웹앱 기준 주소: `https://virtue-english-edu.github.io/hada-management/`
 
 ## 배포
 

@@ -124,7 +124,7 @@ select cron.schedule(
   '* * * * *',
   $cron$
   select net.http_post(
-    url := 'https://twczhsxybkcvjkdfdxvs.supabase.co/functions/v1/process-sync-queue',
+    url := 'https://wmqsfrrvrdmxgiyjjiqz.supabase.co/functions/v1/process-sync-queue',
     headers := '{"Content-Type": "application/json"}'::jsonb,
     body := '{"source":"cron"}'::jsonb
   );

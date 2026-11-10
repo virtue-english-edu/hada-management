@@ -49,7 +49,7 @@ select cron.schedule(
   '0 19 * * *',
   $cron$
   select net.http_post(
-    url := 'https://twczhsxybkcvjkdfdxvs.supabase.co/functions/v1/kiosk-prepare',
+    url := 'https://wmqsfrrvrdmxgiyjjiqz.supabase.co/functions/v1/kiosk-prepare',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-admin-key', (select decrypted_secret from vault.decrypted_secrets where name = 'sync_queue_admin_key' limit 1)

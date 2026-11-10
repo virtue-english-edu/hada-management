@@ -24,7 +24,7 @@ assert.equal((await db.query('select count(*)::int n from net.calls')).rows[0].n
 // 처음 채우기: 커서 없는 첫 표부터
 for(const t of ['cr_sessions','cr_attendance','cr_records','cr_activities']){
  assert.equal(Object.values(await run('class-room-copy-first-fill'))[0],t);
- const c=await last();assert.equal(c.url,'https://twczhsxybkcvjkdfdxvs.supabase.co/functions/v1/sync-class-room-copy');
+ const c=await last();assert.equal(c.url,'https://wmqsfrrvrdmxgiyjjiqz.supabase.co/functions/v1/sync-class-room-copy');
  assert.deepEqual(c.body,{mode:'reconcile',table:t});assert.equal(c.headers['x-admin-key'],'test-only-key');assert.equal(c.timeout,150000);
  assert.equal(Object.values(await run('class-room-copy-first-fill'))[0],t,'same table again until its cursor exists');
  await db.query('insert into public.sync_cursors values($1, now())',[t]);

@@ -21,7 +21,7 @@ select cron.schedule(
   '* * * * *',
   $cron$
   select net.http_post(
-    url := 'https://twczhsxybkcvjkdfdxvs.supabase.co/functions/v1/process-sync-queue',
+    url := 'https://wmqsfrrvrdmxgiyjjiqz.supabase.co/functions/v1/process-sync-queue',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-admin-key', (select decrypted_secret from vault.decrypted_secrets where name = 'sync_queue_admin_key' limit 1)

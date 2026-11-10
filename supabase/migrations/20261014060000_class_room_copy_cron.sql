@@ -29,7 +29,7 @@ end $$;
 create or replace function public.class_room_copy_call(body jsonb) returns void
 language sql security definer set search_path = public as $fn$
   select net.http_post(
-    url := 'https://twczhsxybkcvjkdfdxvs.supabase.co/functions/v1/sync-class-room-copy',
+    url := 'https://wmqsfrrvrdmxgiyjjiqz.supabase.co/functions/v1/sync-class-room-copy',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'x-admin-key', (select decrypted_secret from vault.decrypted_secrets where name = 'sync_queue_admin_key' limit 1)
