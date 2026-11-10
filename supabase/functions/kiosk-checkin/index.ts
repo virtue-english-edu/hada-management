@@ -66,6 +66,7 @@ import { decideStamp, isClassPropertyError, kioskCheckMode, walkInAttendanceProp
 import { StepTiming } from "../_shared/stepTiming.ts"
 import { patchAttendanceStampLater } from "../_shared/classRoomCopy.ts"
 import { hashPhone, kstDate, markKioskTodayStamp, readKioskPrepared, readKioskTodayRow, type KioskPrepared, type KioskTodayRow } from "../_shared/kioskToday.ts"
+import { createSolapiService } from "../_shared/solapiClient.ts"
 
 // "학생이름(등록)"/"클래스명(등록)" 같은 rollup(title 대상) 속성에서 표시 텍스트를 뽑아낸다.
 function rollupFirstText(prop: any): string {
@@ -383,8 +384,7 @@ Deno.serve(async (req: Request) => {
               if (!parentPhone) throw new Error("학부모 연락처를 찾을 수 없습니다.")
               bg.mark("parent_phone")
 
-              const { SolapiMessageService } = await import("npm:solapi")
-              const messageService = new SolapiMessageService(
+              const messageService = await createSolapiService(
                 Deno.env.get("SOLAPI_API_KEY")!,
                 Deno.env.get("SOLAPI_API_SECRET")!,
               )

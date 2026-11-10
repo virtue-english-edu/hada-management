@@ -1,5 +1,6 @@
 import { securityEnabled, currentInternalKey } from "./adminSecurity.ts"
 import { fitVariablesToTemplate } from "./templateFit.ts"
+import { createSolapiService } from "./solapiClient.ts"
 // _shared/alimtalkShared.ts
 //
 // send-daily-report / send-tuition-notice / send-report / send-class-daily-reports 네 함수가
@@ -223,8 +224,7 @@ export async function sendDailyReportAlimtalk(payload: {
   }, category === "일일 보고서" ? undefined : "일일 보고서", branchOfRegistration(payload.registrationId))
   if (!config.templateId) throw new Error(`템플릿 ID가 설정되지 않았습니다. '알림톡 설정(학원) DB'의 '${category}' 행을 켜고 템플릿 ID를 넣어 주세요.`)
 
-  const { SolapiMessageService } = await import("npm:solapi")
-  const messageService = new SolapiMessageService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
+  const messageService = await createSolapiService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
   // (v2.8.0 통일안) 옛·새 템플릿 변수를 함께 받으므로 이 템플릿에 있는 것만 보낸다.
   const variables = await fitVariablesToTemplate(messageService, config.templateId, payload.variables)
 

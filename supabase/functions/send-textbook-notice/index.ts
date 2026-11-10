@@ -53,6 +53,7 @@ import { runInBackground, respondAccepted } from "../_shared/backgroundTask.ts"
 import { alimtalkVar, textbookListBlock } from "../_shared/noticeBlocks.ts"
 import { fitVariablesToTemplate } from "../_shared/templateFit.ts"
 import { enqueueSync, wakeSyncQueueWorker } from "../_shared/syncQueue.ts"
+import { createSolapiService } from "../_shared/solapiClient.ts"
 
 const SOLAPI_API_KEY = Deno.env.get("SOLAPI_API_KEY")!
 const SOLAPI_API_SECRET = Deno.env.get("SOLAPI_API_SECRET")!
@@ -81,8 +82,7 @@ async function sendAlimtalk(
       "템플릿 ID가 설정되지 않았습니다. '알림톡 설정(학원) DB'의 '교재비 안내' 행에 템플릿 ID를 입력해주세요.",
     )
   }
-  const { SolapiMessageService } = await import("npm:solapi")
-  const messageService = new SolapiMessageService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
+  const messageService = await createSolapiService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
   // 옛·새 템플릿 변수를 함께 만들었으므로 그 템플릿에 있는 것만 남긴다(다른 발송 경로와 같음).
   const fitted = await fitVariablesToTemplate(messageService, config.templateId, variables)
   return messageService.send({

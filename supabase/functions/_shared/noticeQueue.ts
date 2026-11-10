@@ -42,6 +42,7 @@ import { refreshStudentReport } from "./dailyReportRefresh.ts"
 import { buildLetterNotice, LetterBlocked } from "./monthlyNotice.ts"
 import { alimtalkVar, BULLET, reportConfigChain, reportSectionVars, textbookListBlock } from "./noticeBlocks.ts"
 import { fitVariablesToTemplate } from "./templateFit.ts"
+import { createSolapiService } from "./solapiClient.ts"
 
 export type NoticeKind = "report" | "tuition" | "textbook" | "letter"
 export type NoticePayload = { kind: NoticeKind; pageId: string; clickerUserId?: string | null }
@@ -93,8 +94,7 @@ const plain = (prop: any): string => {
 async function sendKakao(to: string, variables: Record<string, string>, config: { pfId: string; templateId: string; senderNumber: string }) {
 	if (!to) throw new Error("받는 사람 연락처가 비어 있습니다.")
 	if (!config.templateId) throw new Error("템플릿 ID가 설정되지 않았습니다. '알림톡 설정(학원) DB'를 확인해 주세요.")
-	const { SolapiMessageService } = await import("npm:solapi")
-	const service = new SolapiMessageService(Deno.env.get("SOLAPI_API_KEY")!, Deno.env.get("SOLAPI_API_SECRET")!)
+	const service = await createSolapiService(Deno.env.get("SOLAPI_API_KEY")!, Deno.env.get("SOLAPI_API_SECRET")!)
 	// (v2.8.0 통일안) 옛·새 템플릿 변수를 함께 만들었으므로 이 템플릿에 있는 것만 보낸다.
 	const fitted = await fitVariablesToTemplate(service, config.templateId, variables)
 	return service.send({

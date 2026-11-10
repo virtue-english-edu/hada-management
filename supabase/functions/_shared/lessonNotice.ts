@@ -32,6 +32,7 @@ import { relIds } from "./notionClient.ts"
 import { attendanceBasics, dateOnly } from "./noticeBlocks.ts"
 import { fitVariablesToTemplate } from "./templateFit.ts"
 import { sessionKind } from "./sessionKind.ts"
+import { createSolapiService } from "./solapiClient.ts"
 
 export const LESSON_NOTICE_STATUS_PROP = "수업 안내 상태"
 export const LESSON_NOTICE_SENT_PROP = "수업 안내 일시"
@@ -130,8 +131,7 @@ export async function sendConfiguredAlimtalk(kind: SendLogCategory, registration
     : await getAlimtalkConfig(kind, { pfId: "", templateId: "", senderNumber: SOLAPI_SENDER_NUMBER_FALLBACK }, undefined, branch)
   if (!config.templateId || !config.pfId) throw new LessonConfigError(`알림톡 설정의 '${kind}' 행을 켜고(활성 여부) 카카오 채널 ID·템플릿 ID를 넣어 주세요.`)
   const recipients = await resolveAlimtalkRecipients({ registrationId, primaryPhone, recipientTarget: config.recipientTarget })
-  const { SolapiMessageService } = await import("npm:solapi")
-  const messageService = new SolapiMessageService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
+  const messageService = await createSolapiService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
   const fitted = await fitVariablesToTemplate(messageService, config.templateId, variables)
   const results = []
   for (const r of recipients) {

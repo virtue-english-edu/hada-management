@@ -23,6 +23,7 @@ import { pickProp } from "../_shared/notionClient.ts"
 import { alimtalkVar, inquiryInfoBlock } from "../_shared/noticeBlocks.ts"
 import { fitVariablesToTemplate } from "../_shared/templateFit.ts"
 import { runInBackground, respondAccepted } from "../_shared/backgroundTask.ts"
+import { createSolapiService } from "../_shared/solapiClient.ts"
 
 const FUNCTION_NAME = "send-inquiry-receipt"
 const CONFIG_CODE = "상담 신청 접수 안내"
@@ -347,8 +348,7 @@ async function processStudent(studentId: string, webhookPage: any | null, resend
       "#{접수정보}": snapshot.inquiryInfo || inquiryInfoBlock({ studentName: snapshot.studentName, school: snapshot.school, grade: snapshot.grade }),
     }
 
-    const { SolapiMessageService } = await import("npm:solapi")
-    const service = new SolapiMessageService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
+    const service = await createSolapiService(SOLAPI_API_KEY, SOLAPI_API_SECRET)
     // 옛·새 템플릿 변수를 함께 만들었으므로 이 템플릿에 있는 것만 보낸다.
     const fitted = await fitVariablesToTemplate(service, config.templateId, variables)
     await service.send({
