@@ -137,7 +137,8 @@ function copyButton(label,title,onClick){
 let webhook={rotating:false,usage:[],checks:{}},unchecked=0;
 // Every Notion button/automation that sends the webhook key, grouped by database (docs/버튼-웹훅-매핑.md).
 // Each item: [id, name, kind, route, extra]. extra.path is appended to the webhook URL (sub-route or query, e.g. ?action=regenerate).
-// No item needs an extra header: the original template carries the action in the URL. adminSecurity_test.ts checks that the routes here are exactly
+// These are the per-function URLs. Notion itself now sends every item to notion-router with one key and names the action in a 웹훅* property
+// (docs/updates/v2.8.0.md item 52); this screen still lists per-function URLs until the admin app rework. adminSecurity_test.ts checks that the routes here are exactly
 // SECURITY_WEBHOOK_ROUTES, so a new webhook function cannot be left out of the checklist.
 const BUTTON='버튼',AUTO='자동화';
 // extra.trigger: {when, check:[property, checked]} draws the automation trigger as Notion-like chips. extra.note is one

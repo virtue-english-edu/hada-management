@@ -82,7 +82,7 @@ import { processGenerateClassesQueueItem } from "../_shared/generateClassesQueue
 import { processSessionDateQueueItem } from "../_shared/sessionDateMove.ts"
 import { processDailyReportQueueItem } from "../_shared/dailyReportQueue.ts"
 import { processAssignmentQueueItem } from "../_shared/assignmentPlan.ts"
-import { processNoticeQueueItem } from "../_shared/noticeQueue.ts"
+import { onNoticeFinalFailure, processNoticeQueueItem } from "../_shared/noticeQueue.ts"
 import { processCartPlanQueueItem } from "../_shared/cartPlan.ts"
 import { processClassReportsQueueItem, processRegistrationReportQueueItem } from "../_shared/classReportPlan.ts"
 import { processRoutineChecksQueueItem } from "../_shared/routineCheck.ts"
@@ -93,6 +93,12 @@ import { processRegistrationNoticeQueueItem } from "../_shared/registrationNotic
 import { processScheduleEventItem, processScheduleEventStudentItem } from "../_shared/scheduleNotice.ts"
 import { processLetterCreateClassItem, processLetterCreateRegItem, processMonthlyCreateClassItem, processMonthlyCreateRegItem } from "../_shared/monthlyNotice.ts"
 import { processExampleClearItem, TARGET_EXAMPLE_CLEAR } from "../_shared/exampleClear.ts"
+import { processRouterRetryItem, ROUTER_RETRY_TARGET } from "../_shared/webhookRouter.ts"
+
+// (261112) 재시도를 다 쓴 항목을 Notion에 ⚠️로 남기는 target. 지금은 안내문(⚪ 대기가 남던 곳)만.
+const FINAL_FAILURE: Record<string, (payload: any, message: string) => Promise<void>> = {
+  "notice": onNoticeFinalFailure,
+}
 
 // target별 실제 처리 함수. 앞으로 다른 "일괄(bulk)" 웹훅 함수나, 사람이 여러 페이지를 동시에 클릭할
 // 수 있는 "개별" 웹훅 함수가 추가되면 여기에 추가한다 (위 2026-09-22 Phase 6 주석 참고).
@@ -162,6 +168,8 @@ const HANDLERS: Record<string, (payload: any, cachedGetPage: (id: string) => Pro
   "letter-create-reg": processLetterCreateRegItem,
   // (v2.8.0) 관리자 설정 [예시 데이터 비우기] → clear-example-data. 한 항목이 DB 하나에서 60건씩 지우고 다음 항목을 다시 넣는다.
   [TARGET_EXAMPLE_CLEAR]: processExampleClearItem,
+  // (v2.8.0, 261112) 웹훅 길잡이가 기존 함수로 넘기지 못한 동작(네트워크·5xx·25초 초과)을 다시 넘긴다.
+  [ROUTER_RETRY_TARGET]: processRouterRetryItem,
 }
 
 // (2026-09-22, Phase 6) 이 워커 한 번의 실행(위 sync_queue_worker_lock으로 항상 한 번에 하나만
@@ -273,6 +281,8 @@ Deno.serve(async (req: Request) => {
               `[process-sync-queue] #${item.id} (target=${item.target}) 처리 실패, 재시도 한도(${MAX_ATTEMPTS}회) 초과로 최종 실패:`,
               message,
             )
+            const onFinal = FINAL_FAILURE[item.target]
+            if (onFinal) await onFinal(item.payload, message).catch((e) => console.error(`[process-sync-queue] #${item.id} 최종 실패 표시 못함:`, String((e as Error)?.message ?? e)))
           }
         }
       }

@@ -23,7 +23,7 @@
 import {
 	createSendLogEntry,
 	extractErrorMessage,
-	branchOfRegistration, getAlimtalkConfig,
+	getAlimtalkConfig,
 	getBotUserId,
 	notionGetPage,
 	notionPatchPageProperties,
@@ -256,6 +256,16 @@ async function finish(kind: NoticeKind, pageId: string, status: "✅ 완료" | "
 	}).catch((err: unknown) => console.error("[notice] 상태 쓰기 실패:", pageId, extractErrorMessage(err)))
 }
 
+// (261112) 발송 전 단계 실패는 ⚪ 대기를 남긴 채 큐가 재시도한다. 재시도를 다 써도 ⚪ 대기면 사람이 모르고, 같은 DB의
+// 다른 웹훅이 `웹훅 정보` 수식(⚪ 대기 목록)을 보낼 때 이 안내도 다시 실린다. 최종 실패 때 ⚠️ 오류로 끝낸다.
+export async function onNoticeFinalFailure(payload: NoticePayload, message: string): Promise<void> {
+	if (!payload?.kind || !payload?.pageId || !NOTICE_STATUS_PROP[payload.kind]) return
+	const page = await noticeDeps.getPage(payload.pageId).catch(() => null)
+	if (!page || page.archived || page.in_trash) return
+	if (statusOf(page, payload.kind) !== WAITING) return
+	await finish(payload.kind, payload.pageId, "⚠️ 오류", message, false)
+}
+
 export async function processNoticeQueueItem(payload: NoticePayload): Promise<void> {
 	const { kind, pageId } = payload
 	const page = await noticeDeps.getPage(pageId)
@@ -287,7 +297,7 @@ export async function processNoticeQueueItem(payload: NoticePayload): Promise<vo
 	let recipients: { phone: string }[]
 	try {
 		prep = kind === "report" ? await prepareReport(page) : kind === "tuition" ? prepareTuition(page) : kind === "letter" ? await prepareLetter(page) : prepareTextbook(page)
-		config = await noticeDeps.config(prep.configCategory, { pfId: FALLBACK.pfId, templateId: "", senderNumber: FALLBACK.senderNumber }, prep.configFallback, branchOfRegistration(prep.registrationId, noticeDeps.getPage))
+		config = await noticeDeps.config(prep.configCategory, { pfId: FALLBACK.pfId, templateId: "", senderNumber: FALLBACK.senderNumber }, prep.configFallback)
 		recipients = await noticeDeps.recipients({ registrationId: prep.registrationId, primaryPhone: prep.primaryPhone, recipientTarget: config.recipientTarget })
 	} catch (err) {
 		// 일정도 전달사항도 없음처럼 다시 해도 같은 막힘은 재시도 없이 ⚠️로 끝낸다.

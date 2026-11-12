@@ -34,7 +34,7 @@ import { authorizeKey, securityEnabled } from "../_shared/adminSecurity.ts"
 import {
   notionGetPage,
   createSendLogEntry,
-  branchOfRegistration, getAlimtalkConfig,
+  getAlimtalkConfig,
   getCurrentAdminKey,
   resolveAdminKeyFromRequest,
   getBotUserId,
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
           pfId: SOLAPI_PF_ID_FALLBACK,
           templateId: "",
           senderNumber: SOLAPI_SENDER_NUMBER_FALLBACK,
-        }, undefined, branchOfRegistration(registrationId, async () => registrationPage))
+        })
 
         // [v3] 실제 승인된 템플릿 변수(#{학생이름}/#{클래스}/#{교재비안내}/#{안내멘트})에 정확히 맞춘다.
         // config.notice는 getAlimtalkConfig가 "알림톡 설정(학원) DB"의 "교재비 안내" 행 "안내멘트"를

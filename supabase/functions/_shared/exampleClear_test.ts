@@ -17,9 +17,6 @@ Deno.test("지울·남길 DB 목록이 PC 스크립트와 같다", async () => {
 Deno.test("남기는 DB는 알림톡 설정·과목과 시스템용 메뉴·웹페이지·학년, 비어 있는 문의·요청뿐", () => {
   assertEquals([...KEEP_DBS].sort(), ["과목(학원) DB", "메뉴(학원) DB", "문의·요청(학원) DB", "알림톡 설정(학원) DB", "웹페이지(학원) DB", "학년(학원) DB"].sort())
   for (const n of KEEP_DBS) assert(!CLEAR_DBS.includes(n))
-  // (항목 47) 소속관은 원본에 시연용 관을 넣었을 때 함께 비울 수 있게 비울 DB(학생·수강 묶음)에 둔다
-  assert(CLEAR_DBS.includes("소속관(학원) DB"))
-  assertEquals(GROUPS.find((g) => g.dbs.includes("소속관(학원) DB"))?.name, "학생·수강")
 })
 
 Deno.test("계획은 지울 순서대로, 남길 DB·모르는 DB는 넣지 않는다", () => {

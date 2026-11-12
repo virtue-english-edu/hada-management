@@ -1,7 +1,7 @@
 // All network calls are mocked. No live Notion/Supabase/Solapi calls or secret values are used.
 for (const [key, value] of Object.entries({ NOTION_TOKEN: "test-only", ADMIN_SECRET: "test-only", SB_URL: "https://mock.supabase", SB_SERVICE_ROLE_KEY: "test-only" })) Deno.env.set(key, value)
 const eq = (a: unknown, b: unknown) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`) }
-const { noticeDeps, processNoticeQueueItem } = await import("./noticeQueue.ts")
+const { noticeDeps, onNoticeFinalFailure, processNoticeQueueItem } = await import("./noticeQueue.ts")
 
 const REG = "3ecba040586b8061a932dc4c4869e7a9"
 const text = (s: string) => ({ type: "rich_text", rich_text: [{ plain_text: s }] })
@@ -179,4 +179,20 @@ Deno.test("v2.8.0 가정통신문(letter): 같은 달 가정통신문을 한 통
 		eq(d.calls.sent.length, 0)
 		eq([d.calls.patched[0].props["안내문 전송 상태"].select.name, d.calls.patched[0].props["개별 전송"].checkbox], ["⚠️ 오류", false])
 	} finally { d.restore() }
+})
+
+Deno.test("261112 재시도를 다 쓴 안내: ⚪ 대기면 ⚠️ 오류와 사유를 남기고, 이미 처리된 건은 그대로", async () => {
+	const waiting = fake(reportPage())
+	try {
+		await onNoticeFinalFailure({ kind: "report", pageId: "report-1" }, "보고서에 연결된 등록이 없습니다.")
+		eq(waiting.calls.patches.length, 1)
+		eq(waiting.calls.patches[0]["보고서 전송 상태"].select.name, "⚠️ 오류")
+		eq(waiting.calls.patches[0]["마지막 오류"].rich_text[0].text.content, "보고서에 연결된 등록이 없습니다.")
+		eq(waiting.calls.sent.length, 0)
+	} finally { waiting.restore() }
+	const done = fake(reportPage("✅ 완료"))
+	try {
+		await onNoticeFinalFailure({ kind: "report", pageId: "report-1" }, "x")
+		eq(done.calls.patches.length, 0)
+	} finally { done.restore() }
 })

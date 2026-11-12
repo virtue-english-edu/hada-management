@@ -50,6 +50,20 @@ export async function enqueueSync(target: string, payload: Record<string, unknow
   }
 }
 
+// (v2.8.0, 261112) 처리할 수 없는 일을 바로 "실패"로 한 줄 남긴다(재시도 없음). sync-failure-audit가 30분마다
+// 자동화 로그 DB에 모아 보고한다. 웹훅 길잡이가 동작 ID를 못 찾았을 때 Notion에는 200으로 답하고(4xx면 Notion이
+// 그 자동화를 통째로 멈춘다) 여기에 남긴다.
+export async function recordSyncFailure(target: string, payload: Record<string, unknown>, errorMessage: string): Promise<void> {
+  requireEnv()
+  const now = new Date().toISOString()
+  const res = await fetchSupabaseWithRetry(`${SB_URL}/rest/v1/sync_queue`, {
+    method: "POST",
+    headers: { ...authHeaders(), Prefer: "return=minimal" },
+    body: JSON.stringify([{ target, payload, status: "failed", finished_at: now, last_error: errorMessage.slice(0, 1900) }]),
+  })
+  if (!res.ok) throw new Error(`sync_queue 실패 기록 실패: ${res.status} ${await res.text()}`)
+}
+
 // 큐에 쌓인 작업을 지금 바로 처리하도록 워커를 깨운다 (지연시간을 줄이기 위한 것일 뿐이므로,
 // 실패해도 조용히 무시한다 -- 어차피 pg_cron이 매분 안전망으로 다시 깨워준다).
 // (2026-09-21, process-sync-queue 인증 추가) process-sync-queue가 이제 requireAdminKey로 보호되므로,

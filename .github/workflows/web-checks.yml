@@ -36,7 +36,7 @@ jobs:
           deno-version: v1.x
 
       - name: Admin settings checklist matches the server's webhook routes
-        run: deno test --allow-env --allow-read=admin_settings.js supabase/functions/_shared/adminSecurity_test.ts
+        run: deno test --allow-env --allow-read=admin_settings.js supabase/functions/_shared/adminSecurity_test.ts supabase/functions/_shared/webhookRouter_test.ts
 
       - name: Run regression guard checks
         run: bash scripts/check-known-regressions.sh

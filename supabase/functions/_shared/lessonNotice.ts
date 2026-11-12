@@ -20,7 +20,7 @@
 import {
   createSendLogEntry,
   extractErrorMessage,
-  branchOfRegistration, getAlimtalkConfig,
+  getAlimtalkConfig,
   type AlimtalkConfigCategory,
   getBotUserId,
   notionGetPage,
@@ -124,11 +124,9 @@ const SOLAPI_SENDER_NUMBER_FALLBACK = Deno.env.get("SOLAPI_SENDER_NUMBER") ?? ""
 // (v2.8.0) 일정 안내(_shared/scheduleNotice.ts)도 같은 규칙으로 이 함수를 쓴다. primaryPhone이 비면 등록의 우선 연락처를 읽는다.
 // configCategory를 주면 그 행부터 찾고, 없거나 꺼져 있으면 kind 행(예: "보강 수업 안내" → "수업 안내").
 export async function sendConfiguredAlimtalk(kind: SendLogCategory, registrationId: string, primaryPhone: string, variables: Record<string, string>, configCategory?: AlimtalkConfigCategory) {
-  // (v2.8.0 항목 47) 소속관을 쓰는 학원은 이 등록의 관 행으로.
-  const branch = branchOfRegistration(registrationId)
   const config = configCategory && configCategory !== kind
-    ? await getAlimtalkConfig(configCategory, { pfId: "", templateId: "", senderNumber: SOLAPI_SENDER_NUMBER_FALLBACK }, kind, branch)
-    : await getAlimtalkConfig(kind, { pfId: "", templateId: "", senderNumber: SOLAPI_SENDER_NUMBER_FALLBACK }, undefined, branch)
+    ? await getAlimtalkConfig(configCategory, { pfId: "", templateId: "", senderNumber: SOLAPI_SENDER_NUMBER_FALLBACK }, kind)
+    : await getAlimtalkConfig(kind, { pfId: "", templateId: "", senderNumber: SOLAPI_SENDER_NUMBER_FALLBACK })
   if (!config.templateId || !config.pfId) throw new LessonConfigError(`알림톡 설정의 '${kind}' 행을 켜고(활성 여부) 카카오 채널 ID·템플릿 ID를 넣어 주세요.`)
   const recipients = await resolveAlimtalkRecipients({ registrationId, primaryPhone, recipientTarget: config.recipientTarget })
   const messageService = await createSolapiService(SOLAPI_API_KEY, SOLAPI_API_SECRET)

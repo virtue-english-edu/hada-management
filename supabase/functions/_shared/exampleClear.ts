@@ -51,7 +51,6 @@ export const CLEAR_DBS = [
   "단원목록(학원) DB",
   "라이브러리(학원) DB",
   "교시(학원) DB",
-  "소속관(학원) DB", // (v2.8.0 항목 47) 원본은 비어 있지만 시연용 관을 넣었을 때 한 번에 비울 수 있게(학생·수강 묶음)
   "업데이트(학원) DB",
   "패치·이슈 관리 DB", // 업데이트(학원) DB의 옛 이름
 ]
@@ -69,7 +68,7 @@ export const KEEP_DBS = [
 
 // 화면 묶음. required = 예시 학생·업무 기록이라 꼭 비울 것, 아니면 그대로 써도 되는 기준 자료(선택).
 export const GROUPS: { name: string; required: boolean; dbs: string[] }[] = [
-  { name: "학생·수강", required: true, dbs: ["학생(학원) DB", "등록(학원) DB", "클래스(학원) DB", "시간표(학원) DB", "소속관(학원) DB"] },
+  { name: "학생·수강", required: true, dbs: ["학생(학원) DB", "등록(학원) DB", "클래스(학원) DB", "시간표(학원) DB"] },
   { name: "수업·학습", required: true, dbs: ["수업(학원) DB", "출석(학원) DB", "학습기록(학원) DB", "학습활동(학원) DB", "루틴 체크(학원) DB", "진도교재(학원) DB", "대시보드(학원) DB"] },
   { name: "보고서·알림", required: true, dbs: ["보고서(학원) DB", "알림톡 발송함(학원) DB", "가정통신문(학원) DB", "자동화 로그(학원) DB"] },
   { name: "수납", required: true, dbs: ["수강료(학원) DB", "결제(학원) DB", "교재비(학원) DB", "교재배부(학원) DB", "교재결제(학원) DB"] },

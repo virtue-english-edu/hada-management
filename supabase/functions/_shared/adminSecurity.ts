@@ -7,6 +7,8 @@ export const SECURITY_WEBHOOK_ROUTES = new Set([
   'sync-attendance','sync-class-report-cache','sync-class-room-copy','sync-dashboard-link',
   'sync-registration-textbook','sync-report-cache',
   'sync-school-calendar','sync-textbook-distribution','toggle-report-link',
+  // (v2.8.0, 261111) 웹훅 길잡이: 모든 Notion 버튼·자동화가 같은 주소로 보내면 기존 함수로 넘긴다(관리자 설정 체크리스트 항목은 아님).
+  'notion-router',
 ]);
 // Only routes a logged-in admin page actually calls (kiosk, legal documents, school/textbook search). Notion-only
 // functions such as toggle-report-link and sync-school-calendar take the webhook key, never a browser session,

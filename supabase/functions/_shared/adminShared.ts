@@ -409,7 +409,7 @@ export type AlimtalkConfig = {
   recipientTarget: AlimtalkRecipientTarget[]
 }
 
-const alimtalkConfigCache = new Map<string, { value: AlimtalkConfigRow[]; expiresAt: number }>()
+const alimtalkConfigCache = new Map<string, { value: AlimtalkConfigRow | null; expiresAt: number }>()
 // (v2.6.20) 일일 보고서를 큐로 차례로 보낼 때 같은 설정을 다시 읽지 않도록 5분 재사용(설정은 거의 바뀌지 않음).
 const ALIMTALK_CONFIG_CACHE_MS = 5 * 60_000
 // (v2.8.0) 캐시에는 행에 적힌 값만 두고 기본값(fallback)은 부를 때마다 채운다. 예전에는 처음 부른 쪽의 기본값이 함께
@@ -498,60 +498,7 @@ export function extractErrorMessage(err: unknown): string {
   return base
 }
 
-// (v2.8.0 항목 47) 소속관: 관(본관·1관 등)마다 카카오 채널을 따로 쓰는 학원은 알림톡 설정 행에 `소속관`을 연결하고,
-// 클래스에도 `소속관`을 연결한다. 등록 `소속관(알림톡)` 롤업(클래스 → 소속관)으로 그 반의 관을 알아 같은 관의 행으로 보낸다.
-// 관을 쓰지 않는 학원(기본): 같은 코드 행에 소속관이 하나도 없으면 지금처럼 첫 행을 쓰고 등록도 읽지 않는다.
-// 칸이 아예 없는 학원도 빈 값으로 읽어 지금과 같다.
-export const BRANCH_PROP = "소속관"
-export const REGISTRATION_BRANCH_PROP = "소속관(알림톡)"
-// 소속관 페이지 ID 목록을 늦게(필요할 때만) 읽는 함수. 관을 쓰는 학원에서만 불린다.
-export type BranchLookup = () => Promise<string[]>
-
-const normalizeId = (id: unknown) => String(id ?? "").replaceAll("-", "").toLowerCase()
-
-// 관계(relation) 또는 관계를 모은 롤업(array)에서 페이지 ID를 모은다. 칸이 없으면 빈 목록.
-export function relationIdsOf(prop: any): string[] {
-  if (!prop) return []
-  if (Array.isArray(prop.relation)) return prop.relation.map((r: any) => normalizeId(r?.id)).filter(Boolean)
-  if (prop.type === "rollup" && prop.rollup?.type === "array") return [...new Set<string>(prop.rollup.array.flatMap(relationIdsOf))]
-  return []
-}
-
-// 등록 하나의 소속관(롤업). 한 번만 읽고 실패하면 빈 목록(→ 소속관이 빈 기본 행).
-export function branchOfRegistration(registrationId: string | null | undefined, getPage: (id: string) => Promise<any> = notionGetPage): BranchLookup {
-  let memo: Promise<string[]> | null = null
-  return () =>
-    (memo ??= (async () => {
-      if (!registrationId) return []
-      try {
-        return relationIdsOf((await getPage(registrationId)).properties?.[REGISTRATION_BRANCH_PROP])
-      } catch (e) {
-        console.warn("[소속관] 등록 소속관 읽기 실패, 기본 행 사용:", e)
-        return []
-      }
-    })())
-}
-
-// 같은 코드의 설정 행들 중에서 고른다(순수 함수, 시험용으로 내보냄).
-// 소속관이 걸린 행이 없으면 첫 행 하나(지금과 같음, lookup을 부르지 않음).
-// 있으면: 그 관의 행 → 소속관이 빈 행 순서의 후보. 후보 가운데 켜진 첫 행을 쓴다.
-export type ConfigRowCandidate = { id: string; active: boolean; branchIds: string[] }
-export async function pickConfigRow<T extends ConfigRowCandidate>(rows: T[], lookup?: BranchLookup): Promise<{ row: T | null; reason: "none" | "inactive" | "ok"; branchIds: string[] }> {
-  if (!rows.length) return { row: null, reason: "none", branchIds: [] }
-  if (!rows.some((r) => r.branchIds.length)) {
-    const row = rows[0]
-    return row.active ? { row, reason: "ok", branchIds: [] } : { row: null, reason: "inactive", branchIds: [] }
-  }
-  const ids = lookup ? await lookup() : []
-  const own = ids.length ? rows.filter((r) => r.branchIds.some((id) => ids.includes(id))) : []
-  const shared = rows.filter((r) => !r.branchIds.length)
-  const candidates = [...own, ...shared]
-  if (!candidates.length) return { row: null, reason: "none", branchIds: ids }
-  const row = candidates.find((r) => r.active) ?? null
-  return row ? { row, reason: "ok", branchIds: ids } : { row: null, reason: "inactive", branchIds: ids }
-}
-
-type AlimtalkConfigRow = ConfigRowCandidate & { value: AlimtalkConfig }
+type AlimtalkConfigRow = { id: string; active: boolean; value: AlimtalkConfig }
 
 function alimtalkConfigRowOf(page: any): AlimtalkConfigRow {
   const getText = (name: string) =>
@@ -559,7 +506,6 @@ function alimtalkConfigRowOf(page: any): AlimtalkConfigRow {
   return {
     id: page.id,
     active: page.properties?.["활성 여부"]?.checkbox !== false,
-    branchIds: relationIdsOf(page.properties?.[BRANCH_PROP]),
     value: {
       pfId: getText("카카오 채널 ID (pfId)"),
       templateId: getText("템플릿 ID"),
@@ -570,31 +516,30 @@ function alimtalkConfigRowOf(page: any): AlimtalkConfigRow {
   }
 }
 
-// 같은 코드의 행을 모두 읽는다(관마다 한 행이라 많아야 몇 개). 5분 캐시.
-async function alimtalkConfigRows(category: AlimtalkConfigCategory): Promise<AlimtalkConfigRow[]> {
+// 같은 코드의 첫 행을 읽는다(없으면 null). 5분 캐시.
+async function alimtalkConfigRow(category: AlimtalkConfigCategory): Promise<AlimtalkConfigRow | null> {
   const cached = alimtalkConfigCache.get(category)
   if (cached && cached.expiresAt > Date.now()) return cached.value
   const json = await notionQueryDatabase(ALIMTALK_CONFIG_DB_ID, {
     filter: { property: "코드", rich_text: { equals: category } },
-    page_size: 20,
+    page_size: 1,
   })
-  const rows = (json.results ?? []).map(alimtalkConfigRowOf)
-  alimtalkConfigCache.set(category, { value: rows, expiresAt: Date.now() + ALIMTALK_CONFIG_CACHE_MS })
-  return rows
+  const page = json.results?.[0]
+  const row = page ? alimtalkConfigRowOf(page) : null
+  alimtalkConfigCache.set(category, { value: row, expiresAt: Date.now() + ALIMTALK_CONFIG_CACHE_MS })
+  return row
 }
 
 // (v2.8.0) fallbackCategory: 이 코드의 행이 없거나 꺼져 있으면 그 코드의 행을 쓴다
 // (주간·월간 보고서 템플릿을 나눈 뒤 "주간 보고서"/"월간 보고서" 행이 아직 없는 학원은 옛 "보고서" 행으로).
-// (v2.8.0 항목 47) branch: 그 발송의 소속관을 읽는 함수(보통 branchOfRegistration). 대체 순서의 다음 코드에도 같은 관을 쓴다.
 export async function getAlimtalkConfig(
   category: AlimtalkConfigCategory,
   fallback: { pfId: string; templateId: string; senderNumber: string },
   // 행이 없거나 꺼져 있으면 다음 구분을 차례로 본다(예: 주간 활동 보고서 → 주간 보고서 → 보고서).
   fallbackCategory?: AlimtalkConfigCategory | AlimtalkConfigCategory[],
-  branch?: BranchLookup,
 ): Promise<AlimtalkConfig> {
   const chain = fallbackCategory === undefined ? [] : Array.isArray(fallbackCategory) ? fallbackCategory : [fallbackCategory]
-  const next = () => getAlimtalkConfig(chain[0], fallback, chain.length > 1 ? chain.slice(1) : undefined, branch)
+  const next = () => getAlimtalkConfig(chain[0], fallback, chain.length > 1 ? chain.slice(1) : undefined)
 
   if (!ALIMTALK_CONFIG_DB_ID) {
     console.warn(`[getAlimtalkConfig][${category}] ALIMTALK_CONFIG_DB_ID env var가 비어있어 fallback 사용`)
@@ -602,19 +547,18 @@ export async function getAlimtalkConfig(
   }
 
   try {
-    const picked = await pickConfigRow(await alimtalkConfigRows(category), branch)
-    const where = picked.branchIds.length ? ` (소속관 ${picked.branchIds.join(",")})` : ""
-    if (!picked.row) {
+    const row = await alimtalkConfigRow(category)
+    if (!row || !row.active) {
       console.warn(
-        picked.reason === "none"
-          ? `[getAlimtalkConfig][${category}] ALIMTALK_CONFIG_DB_ID=${ALIMTALK_CONFIG_DB_ID}에서 일치하는 행을 못 찾음${where}`
-          : `[getAlimtalkConfig][${category}] 해당 행의 활성 여부가 꺼져있어 fallback 사용${where}`,
+        !row
+          ? `[getAlimtalkConfig][${category}] ALIMTALK_CONFIG_DB_ID=${ALIMTALK_CONFIG_DB_ID}에서 일치하는 행을 못 찾음`
+          : `[getAlimtalkConfig][${category}] 해당 행의 활성 여부가 꺼져있어 fallback 사용 (pageId=${row.id})`,
       )
       if (chain.length) return await next()
       return { ...fallback, notice: "", recipientTarget: ["우선 연락 대상"] }
     }
-    console.log(`[getAlimtalkConfig][${category}] pageId=${picked.row.id}${where}, noticeLength=${picked.row.value.notice.length}`)
-    return withConfigFallback(picked.row.value, fallback)
+    console.log(`[getAlimtalkConfig][${category}] pageId=${row.id}, noticeLength=${row.value.notice.length}`)
+    return withConfigFallback(row.value, fallback)
   } catch (e) {
     console.error(`[getAlimtalkConfig][${category}] 조회 실패, Secrets 기본값 사용:`, e)
     return { ...fallback, notice: "", recipientTarget: ["우선 연락 대상"] }

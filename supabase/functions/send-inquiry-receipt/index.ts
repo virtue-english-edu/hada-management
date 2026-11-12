@@ -5,7 +5,6 @@ import { authorizeKey, securityEnabled } from "../_shared/adminSecurity.ts"
 // 상담 신청 시 선택한 "우선 연락 대상"의 번호로 발송하고, 당시 수신 정보를 로그에 보존한다.
 
 import {
-  BRANCH_PROP,
   CORS_HEADERS,
   assertValidPhone,
   extractErrorMessage,
@@ -14,8 +13,6 @@ import {
   notionGetPage,
   notionPatchPageProperties,
   notionQueryDatabase,
-  pickConfigRow,
-  relationIdsOf,
   resolveAdminKeyFromRequest,
 } from "../_shared/adminShared.ts"
 import { normalizePhone } from "../_shared/alimtalkShared.ts"
@@ -56,8 +53,6 @@ type StudentSnapshot = {
   status: string
   // (10/29) "접수정보(알림톡)" 수식 값(없으면 서버가 만든다).
   inquiryInfo?: string
-  // (v2.8.0 항목 47) 학생 `소속관`. 페이지에 칸이 없으면(웹훅 속성 목록에 없음 등) null.
-  branchIds?: string[] | null
 }
 
 type DeliveryState = {
@@ -69,9 +64,7 @@ type DeliveryState = {
 }
 
 let kv: Deno.Kv | null | undefined
-// (v2.8.0 항목 47) 같은 코드의 행을 모두 캐시하고, 보낼 때 학생 `소속관`으로 고른다(관을 안 쓰면 첫 행).
-type ConfigRow = { id: string; active: boolean; branchIds: string[]; value: Config }
-let memoryConfigCache: { value: ConfigRow[]; expiresAt: number } | null = null
+let memoryConfigCache: { value: Config; expiresAt: number } | null = null
 
 async function getKvStore(): Promise<Deno.Kv | null> {
   if (kv !== undefined) return kv
@@ -146,7 +139,6 @@ function snapshotFromPage(page: any): StudentSnapshot {
     grade: formulaText(page, "학년(설문)") || richText(page, "학년(설문)"),
     status: selectText(page, STATUS_PROP),
     inquiryInfo: alimtalkVar(page, "접수정보", ""),
-    branchIds: page.properties?.[BRANCH_PROP] ? relationIdsOf(page.properties[BRANCH_PROP]) : null,
   }
 }
 
@@ -166,14 +158,14 @@ async function setStatus(pageId: string, status: "⚪ 대기" | "🔄 작업중"
   })
 }
 
-async function getConfigRows(): Promise<ConfigRow[]> {
+async function getConfig(): Promise<Config> {
   if (!ALIMTALK_CONFIG_DB_ID) throw new Error("알림톡 설정 DB ID가 등록되지 않았습니다.")
   const now = Date.now()
   if (memoryConfigCache && memoryConfigCache.expiresAt > now) return memoryConfigCache.value
 
   const store = await getKvStore()
-  const cacheKey = ["inquiry_receipt", "config_rows", CONFIG_CODE]
-  const cached = store ? (await store.get<{ value: ConfigRow[]; expiresAt: number }>(cacheKey)).value : null
+  const cacheKey = ["inquiry_receipt", "config", CONFIG_CODE]
+  const cached = store ? (await store.get<{ value: Config; expiresAt: number }>(cacheKey)).value : null
   if (cached && cached.expiresAt > now) {
     memoryConfigCache = cached
     return cached.value
@@ -182,24 +174,19 @@ async function getConfigRows(): Promise<ConfigRow[]> {
   try {
     const json = await notionQueryDatabase(ALIMTALK_CONFIG_DB_ID, {
       filter: { property: "코드", rich_text: { equals: CONFIG_CODE } },
-      page_size: 20,
+      page_size: 1,
     })
-    const value: ConfigRow[] = (json.results ?? []).map((page: any) => {
-      const getText = (name: string) =>
-        (page.properties?.[name]?.rich_text ?? []).map((item: any) => item.plain_text ?? "").join("").trim()
-      const active = page.properties?.["활성 여부"]?.checkbox === true
-      return {
-        id: page.id,
-        active,
-        branchIds: relationIdsOf(page.properties?.[BRANCH_PROP]),
-        value: {
-          active,
-          pfId: getText("카카오 채널 ID (pfId)"),
-          templateId: getText("템플릿 ID"),
-          senderNumber: getText("발신번호") || SOLAPI_SENDER_NUMBER_FALLBACK,
-        },
-      }
-    })
+    const page = json.results?.[0]
+    if (!page) throw new Error(`알림톡 설정에서 코드 '${CONFIG_CODE}' 행을 찾을 수 없습니다.`)
+
+    const getText = (name: string) =>
+      (page.properties?.[name]?.rich_text ?? []).map((item: any) => item.plain_text ?? "").join("").trim()
+    const value: Config = {
+      active: page.properties?.["활성 여부"]?.checkbox === true,
+      pfId: getText("카카오 채널 ID (pfId)"),
+      templateId: getText("템플릿 ID"),
+      senderNumber: getText("발신번호") || SOLAPI_SENDER_NUMBER_FALLBACK,
+    }
     const entry = { value, expiresAt: now + CONFIG_CACHE_MS }
     memoryConfigCache = entry
     await store?.set(cacheKey, entry)
@@ -211,15 +198,6 @@ async function getConfigRows(): Promise<ConfigRow[]> {
     }
     throw err
   }
-}
-
-// 행이 없으면 오류, 고른 후보가 모두 꺼져 있으면 active=false(예전과 같은 처리).
-async function getConfig(branchLookup: () => Promise<string[]>): Promise<Config> {
-  const rows = await getConfigRows()
-  const picked = await pickConfigRow(rows, branchLookup)
-  if (picked.row) return picked.row.value
-  if (picked.reason === "none") throw new Error(`알림톡 설정에서 코드 '${CONFIG_CODE}' 행을 찾을 수 없습니다.`)
-  return { active: false, pfId: "", templateId: "", senderNumber: "" }
 }
 
 async function writeLog(args: {
@@ -319,10 +297,7 @@ async function processStudent(studentId: string, webhookPage: any | null, resend
     }
     if (!snapshot.recipientType) throw new Error("우선 연락 대상을 선택해주세요.")
 
-    const knownBranch = snapshot.branchIds
-    const config = await getConfig(async () =>
-      knownBranch ?? relationIdsOf((await notionGetPage(studentId)).properties?.[BRANCH_PROP])
-    )
+    const config = await getConfig()
     if (!config.active) {
       await setStatus(studentId, "⚪ 대기")
       console.log(`[${FUNCTION_NAME}] 알림톡 설정이 비활성화되어 발송을 건너뜀:`, studentId)

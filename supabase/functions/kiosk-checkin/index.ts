@@ -49,7 +49,7 @@ import {
   notionGetPage,
   notionPatchPageProperties,
   notionCreatePage,
-  branchOfRegistration, getAlimtalkConfig,
+  getAlimtalkConfig,
   createSendLogEntry,
   extractErrorMessage,
 } from "../_shared/adminShared.ts"
@@ -376,7 +376,7 @@ Deno.serve(async (req: Request) => {
             pfId: "",
             templateId: "",
             senderNumber: Deno.env.get("SOLAPI_SENDER_NUMBER") ?? "",
-          }, undefined, branchOfRegistration(notifyRegistrationId))
+          })
           bg.mark("alimtalk_config")
           if (config.pfId && config.templateId) {
             try {

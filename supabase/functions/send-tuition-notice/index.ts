@@ -37,7 +37,7 @@ import {
   notionGetPage,
   notionPatchPageProperties,
   createSendLogEntry,
-  branchOfRegistration, getAlimtalkConfig,
+  getAlimtalkConfig,
   getCurrentAdminKey,
   resolveAdminKeyFromRequest,
   getBotUserId,
@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
         pfId: SOLAPI_PF_ID_FALLBACK,
         templateId: "",
         senderNumber: SOLAPI_SENDER_NUMBER_FALLBACK,
-      }, undefined, branchOfRegistration(registrationId))
+      })
       // [FIX, 2026-09-17] "안내멘트"는 수강료(학원) DB에 없는 롤업이 아니라, "알림톡 설정(학원) DB"의
       // "수강료 안내" 행 안내멘트를 그대로 쓴다 (예전 getRollupText(tuitionPage, "안내멘트")는 항상 빈 값이었음).
       const notice = config.notice
